@@ -25,9 +25,10 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     hashed_password = security.get_password_hash(user.password)
 
     # 2. Create the main User object, but *without* the password.
+    # We now handle the name more flexibly.
     db_user = models.User(
-        name=user.name,
-        email=user.email
+        email=user.email,
+        name=user.name or "New User" # Use the provided name or default to "New User"
     )
     db.add(db_user)
     # The 'flush' is like a pre-commit. It sends the user to the database so it gets an ID,

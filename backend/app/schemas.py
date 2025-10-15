@@ -21,7 +21,9 @@ class TokenData(BaseModel):
 
 class UserCreate(BaseModel):
     """Schema for creating a new user."""
-    name: str = Field(..., min_length=1, max_length=100)
+    # The name is now optional. If the frontend doesn't send it,
+    # our CRUD function will handle the default.
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: EmailStr
     password: str = Field(..., min_length=8)
 
