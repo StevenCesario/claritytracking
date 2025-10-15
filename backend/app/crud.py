@@ -68,3 +68,28 @@ def create_website(db: Session, website: schemas.WebsiteCreate, user_id: int) ->
     db.add(db_website)
     # The endpoint will handle the commit.
     return db_website
+
+# =============================================================================
+# CONNECTION CRUD OPERATIONS (NEW)
+# =============================================================================
+
+def get_website_by_id_and_owner(db: Session, website_id: int, user_id: int) -> models.Website | None:
+    """
+    Fetches a website only if it belongs to the specified user.
+    This is a critical security function to ensure ownership.
+    """
+    return db.query(models.Website).filter(
+        models.Website.id == website_id,
+        models.Website.user_id == user_id
+    ).first()
+
+def create_connection_for_website(db: Session, connection: schemas.ConnectionCreate, website_id: int) -> models.Connection:
+    """
+    Creates a new Connection record and links it to a specific website.
+    """
+    db_connection = models.Connection(
+        **connection.model_dump(), # Unpacks platform and platform_identifiers
+        website_id=website_id      # Links it to the parent website
+    )
+    db.add(db_connection)
+    return db_connection
