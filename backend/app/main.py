@@ -2,11 +2,17 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import Annotated # A modern way to declare dependencies
+
+# Annotated as a modern way to declare dependencies, List for the response models
+from typing import Annotated, List
 
 # ---- Internal Imports ----
 # We bring in all the pieces we've built so far.
 from . import crud, models, schemas, security, database
+
+# This command ensures our database tables are created based on our models.
+# It's good practice to have it here, though Alembic is our primary tool for this.
+models.Base.metadata.create_all(bind=database.engine)
 
 # Create the main FastAPI application instance. This is our "restaurant".
 app = FastAPI(
@@ -33,7 +39,7 @@ app.add_middleware(
 
 
 # =============================================================================
-# API ENDPOINTS
+# AUTHENTICATION ENDPOINTS
 # =============================================================================
 
 @app.post("/api/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
@@ -96,6 +102,10 @@ def login_for_access_token(
     # 4. Return the token to the client.
     return {"access_token": access_token, "token_type": "bearer"}
 
+# =============================================================================
+# USER & WEBSITE ENDPOINTS
+# =============================================================================
+
 @app.get("/api/users/me", response_model=schemas.UserResponse)
 def get_user_me(current_user: Annotated[models.User, Depends(security.get_current_user)]):
     """
@@ -107,3 +117,59 @@ def get_user_me(current_user: Annotated[models.User, Depends(security.get_curren
     # validated the token and fetched the user from the database.
     # We can simply return the user object.
     return current_user
+
+@app.post("/api/websites", response_model=schemas.WebsiteResponse, status_code=status.HTTP_201_CREATED)
+def create_website_for_user(
+    website: schemas.WebsiteCreate,
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: Session = Depends(database.get_db)
+):
+    """
+    Protected endpoint to create a new website for the logged-in user.
+    """
+    db_website = crud.create_website(db=db, website=website, user_id=current_user.id)
+    db.commit()
+    db.refresh(db_website)
+    return db_website
+
+@app.get("/api/websites", response_model=List[schemas.WebsiteResponse])
+def read_websites_for_user(
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: Session = Depends(database.get_db)
+):
+    """
+    Protected endpoint to retrieve all websites owned by the logged-in user.
+    """
+    websites = crud.get_websites_by_user(db=db, user_id=current_user.id)
+    return websites
+
+# =============================================================================
+# CONNECTION ENDPOINTS
+# =============================================================================
+
+@app.post("/api/websites/{website_id}/connections", response_model=schemas.ConnectionResponse, status_code=status.HTTP_201_CREATED)
+def create_connection(
+    website_id: int,
+    connection: schemas.ConnectionCreate,
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: Session = Depends(database.get_db)
+):
+    """
+    Protected endpoint to create a new platform connection for a specific website.
+    Crucially, it first verifies that the user owns the website.
+    """
+    # 1. Ownership Verification: Use our security-focused CRUD function.
+    db_website = crud.get_website_by_id_and_owner(db=db, website_id=website_id, user_id=current_user.id)
+    
+    # 2. If the website doesn't exist or doesn't belong to the user, deny access.
+    if db_website is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Website not found or you do not have permission to access it."
+        )
+    
+    # 3. If ownership is confirmed, proceed to create the connection.
+    db_connection = crud.create_connection_for_website(db=db, connection=connection, website_id=website_id)
+    db.commit()
+    db.refresh(db_connection)
+    return db_connection
