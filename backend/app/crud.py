@@ -4,6 +4,10 @@ from sqlalchemy.orm import Session
 # and security functions (the locksmith).
 from . import models, schemas, security
 
+# =============================================================================
+# USER CRUD OPERATIONS
+# =============================================================================
+
 def get_user_by_email(db: Session, email: str) -> models.User | None:
     """
     Recipe to find a user by their email address.
@@ -43,3 +47,24 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     # roll back *all* of these changes.
     
     return db_user
+
+# =============================================================================
+# WEBSITE CRUD OPERATIONS (NEW)
+# =============================================================================
+
+def get_websites_by_user(db: Session, user_id: int) -> list[models.Website]:
+    """Fetches all websites owned by a user"""
+    return db.query(models.Website).filter(models.Website.user_id == user_id).all()
+
+def create_website(db: Session, website: schemas.WebsiteCreate, user_id: int) -> models.Website:
+    """
+    Creates a new Website record, ensuring it is linked to a user.
+    The user_id is a mandatory "ingredient" to enforce ownership.
+    """
+    db_website = models.Website(
+        **website.model_dump(),  # Unpacks the 'url' and 'name' from the schema
+        user_id=user_id          # Explicitly sets the owner
+    )
+    db.add(db_website)
+    # The endpoint will handle the commit.
+    return db_website
