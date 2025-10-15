@@ -37,22 +37,3 @@ dist/
 Your local database should never be committed.
 *.db
 *.sqlite3
-
-# =============================================================================
-# Frontend (Future-proofing for Node.js/Vite/React)
-# =============================================================================
-# Node dependencies
-node_modules/
-
-# Production build output
-frontend/dist/
-
-# Log files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Local frontend environment variables
-frontend/.env.local
-frontend/.env.*.local
