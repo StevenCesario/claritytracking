@@ -11,8 +11,15 @@ from sqlalchemy.orm import Session
 from . import database, models, schemas
 
 # --- Configuration ---
-# Load secrets from environment variables with defaults for development.
-SECRET_KEY = os.getenv("SECRET_KEY", "a_super_secret_dev_key")
+# Load secrets from environment variables.
+# Using os.environ['KEY'] is a deliberate choice. It will raise a KeyError
+# and crash the app on startup if the key is missing, which is a secure
+# default behavior.
+try:
+    SECRET_KEY = os.environ["SECRET_KEY"]
+except KeyError:
+    raise RuntimeError("SECRET_KEY must be set in the environment variables.")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30 # A token will be valid for 30 minutes.
 
