@@ -40,6 +40,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# =============================================================================
+# HEALTH CHECK ENDPOINT
+# =============================================================================
+
+@app.get("/healthz", status_code=status.HTTP_200_OK)
+def health_check():
+    """A simple endpoint to confirm the API is running."""
+    return {"status": "ok"}
 
 # =============================================================================
 # AUTHENTICATION ENDPOINTS
