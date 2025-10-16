@@ -90,7 +90,8 @@ function Dashboard({ onLogout }) {
   }
 
   return (
-    <div className="w-full">
+    // Flexbox utilities added here to center the child components
+    <div className="w-full flex flex-col items-center justify-center">
       {websites.length === 0 ? (
         <CreateWebsiteForm onWebsiteCreated={handleWebsiteCreated} />
       ) : (
