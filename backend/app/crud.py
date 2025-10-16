@@ -13,13 +13,16 @@ def get_user_by_email(db: Session, email: str) -> models.User | None:
     Recipe to find a user by their email address.
     This is essential for checking if a user already exists during registration
     and for finding the user during login.
+    Normalizes email to lowercase and strips whitespace for consistency.
     """
-    return db.query(models.User).filter(models.User.email == email).first()
+    normalized_email = email.strip().lower()
+    return db.query(models.User).filter(models.User.email == normalized_email).first()
 
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """
     Recipe for creating a new user. This is a transactional process that
     creates both the main User record and their associated UserAuth record.
+    Normalizes email and name before creation.
     """
     # 1. Hash the plain-text password from the request. We never store it directly.
     hashed_password = security.get_password_hash(user.password)
@@ -27,8 +30,8 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     # 2. Create the main User object, but *without* the password.
     # We now handle the name more flexibly.
     db_user = models.User(
-        email=user.email,
-        name=user.name or "New User" # Use the provided name or default to "New User"
+        email=user.email.strip().lower(),
+        name=(user.name or "New User").strip() # Use the provided name or default to "New User"
     )
     db.add(db_user)
     # The 'flush' is like a pre-commit. It sends the user to the database so it gets an ID,
