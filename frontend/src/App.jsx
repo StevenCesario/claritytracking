@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import LoginForm from './components/LoginForm';
 import RegistrationForm from './components/RegistrationForm';
+import Dashboard from './components/Dashboard';
 
 // This new component is a "local conductor". Its only job is to manage
 // which authentication form is visible, keeping the main App component clean.
@@ -79,18 +80,10 @@ function App() {
   return (
     <div className="bg-gray-900 min-h-screen flex items-center justify-center text-white p-4">
       {token ? (
-        <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-md">
-          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <p className="text-gray-400 mt-2">You are logged in!</p>
-          <button 
-            onClick={handleLogout} // We now use the named handler
-            className="mt-6 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
-          >
-            Log Out
-          </button>
-        </div>
+        // If logged in, render the Dashboard and pass the logout handler
+        <Dashboard onLogout={handleLogout} />
       ) : (
-        <AuthScreen onLoginSuccess={handleLoginSuccess} /> // We now use the named handler
+        <AuthScreen onLoginSuccess={handleLoginSuccess} />
       )}
     </div>
   );
