@@ -1,6 +1,8 @@
 // This file acts as our "Ambassador" to the backend API.
 // All functions for making API calls will live here.
 
+import authFetch from '../utils/authFetch';
+
 // The base URL for our backend, pulled from an environment variable.
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -17,6 +19,8 @@ async function handleErrors(response) {
   }
   return response.json();
 }
+
+// --- NON-AUTHENTICATED FUNCTIONS ---
 
 /**
  * The recipe for registering a new user.
@@ -55,4 +59,27 @@ export async function loginUser(credentials) {
     localStorage.setItem('authToken', data.access_token);
   }
   return data;
+}
+
+// --- AUTHENTICATED FUNCTIONS ---
+
+/**
+ * Fetches all websites for the current logged-in user.
+ * Uses our secure authFetch courier.
+ */
+export async function getWebsites() {
+  const response = await authFetch('/api/websites');
+  return handleErrors(response);
+}
+
+/**
+ * Creates a new website for the current logged-in user.
+ * Uses our secure authFetch courier.
+ */
+export async function createWebsite(websiteData) {
+  const response = await authFetch('/api/websites', {
+    method: 'POST',
+    body: JSON.stringify(websiteData),
+  });
+  return handleErrors(response);
 }
