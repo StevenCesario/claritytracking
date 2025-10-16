@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LoginForm from './components/LoginForm';
 import RegistrationForm from './components/RegistrationForm';
 
@@ -6,22 +6,29 @@ import RegistrationForm from './components/RegistrationForm';
 // which authentication form is visible, keeping the main App component clean.
 function AuthScreen({ onLoginSuccess }) {
   const [view, setView] = useState('login'); // Can be 'login' or 'register'
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // When registration is successful, this function passed from the parent
   // will be called, which will then flip the view back to 'login'.
   const handleRegisterSuccess = () => {
     setView('login');
-    // We could add a "Registration successful!" message here later.
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-md bg-gray-800 p-8 rounded-lg shadow-lg">
+      {showSuccess && (
+        <div className="mb-4 p-3 bg-green-900 text-green-300 border border-green-700 rounded-md text-center">
+          Registration successful! Please log in.
+        </div>
+      )}
       {view === 'login' ? (
         <LoginForm onLoginSuccess={onLoginSuccess} />
       ) : (
         <RegistrationForm onRegisterSuccess={handleRegisterSuccess} />
       )}
-      <div className="mt-4 text-center">
+      <div className="mt-6 text-center">
         {view === 'login' ? (
           <p className="text-gray-400">
             No account yet?{' '}
@@ -50,36 +57,40 @@ function App() {
   // keep the user logged in even after a page refresh.
   const [token, setToken] = useState(localStorage.getItem('authToken'));
 
+  // A single declarative rule for localStorage management of the authToken
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('authToken', token);
+    } else {
+      localStorage.removeItem('authToken');
+    }
+  }, [token]);
+
+  // This function is now passed to AuthScreen
   const handleLoginSuccess = (newToken) => {
-    // When the login is successful, this function is called by the LoginForm.
-    // It updates the state, which will cause the App to re-render.
     setToken(newToken);
   };
 
+  // This function is now passed to the Logout button
   const handleLogout = () => {
-    // To log out, we simply remove the token from state and localStorage.
-    localStorage.removeItem('authToken');
     setToken(null);
   };
 
   return (
     <div className="bg-gray-900 min-h-screen flex items-center justify-center text-white p-4">
       {token ? (
-        // If a token exists, we render the "logged-in" view (our future dashboard).
-        <div>
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-md">
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <p className="text-gray-400">You are logged in!</p>
+          <p className="text-gray-400 mt-2">You are logged in!</p>
           <button 
-            onClick={handleLogout} 
-            className="mt-4 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
+            onClick={handleLogout} // We now use the named handler
+            className="mt-6 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
           >
             Log Out
           </button>
         </div>
       ) : (
-        // If no token exists, we render the AuthScreen, passing it the function
-        // that will update the token upon a successful login.
-        <AuthScreen onLoginSuccess={handleLoginSuccess} />
+        <AuthScreen onLoginSuccess={handleLoginSuccess} /> // We now use the named handler
       )}
     </div>
   );
