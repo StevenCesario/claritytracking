@@ -30,9 +30,16 @@ class User(Base):
     registered_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     # One-to-one relationship with UserAuth for password storage.
-    auth: Mapped["UserAuth"] = relationship(back_populates="user")
+    auth: Mapped["UserAuth"] = relationship(
+        back_populates="user",
+        uselist=False, # Explicitly define as one-to-one
+        cascade="all, delete-orphan" # If a user is deleted, auth record is deleted
+    )
     # One user can have many websites they are tracking.
-    websites: Mapped[List["Website"]] = relationship(back_populates="user")
+    websites: Mapped[List["Website"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan" # If a user is deleted, their websites are deleted too.
+    )
 
 # Securely stores user password hashes, separate from the main user info.
 class UserAuth(Base):
@@ -42,7 +49,10 @@ class UserAuth(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
 
     # Relationship back to the User model.
-    user: Mapped["User"] = relationship(back_populates="auth")
+    user: Mapped["User"] = relationship(
+        back_populates="auth",
+        uselist=False # Explicitly define as one-to-one
+    )
 
 # Represents a website that a user is tracking with ClarityPixel.
 class Website(Base):
@@ -55,11 +65,15 @@ class Website(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     # One website can be connected to multiple tracking platforms (Meta, TikTok, etc.).
-    connections: Mapped[List["Connection"]] = relationship(back_populates="website")
+    connections: Mapped[List["Connection"]] = relationship(
+        back_populates="website",
+        cascade="all, delete-orphan" # If a website is deleted, its connections go too.
+    )
     user: Mapped["User"] = relationship(back_populates="websites")
 
 # Represents a connection to a specific ad platform (like Meta, TikTok, or Shopify).
 # This is the key to our "platform agnostic" future.
+PLATFORMS = ("meta", "shopify", "tiktok")
 class Connection(Base):
     __tablename__ = "connections"
 
