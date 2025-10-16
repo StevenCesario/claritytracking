@@ -93,3 +93,25 @@ class DashboardResponse(BaseModel):
     overall_roas: float
     campaign_performance: list[Dict[str, Any]] # A list of campaign objects
     event_health_monitor: list[EventHealth]
+
+# =============================================================================
+# WAITLIST SCHEMAS
+# =============================================================================
+
+class WaitlistCreate(BaseModel):
+    """Schema for adding a new email to the waitlist."""
+    email: EmailStr
+    source: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    referer: Optional[str] = None
+
+class WaitlistResponse(BaseModel):
+    """The shape of the response after a successful waitlist signup."""
+    id: int
+    email: EmailStr
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

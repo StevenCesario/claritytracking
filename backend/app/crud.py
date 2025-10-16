@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 # We import our models (the database blueprint), schemas (the API contract),
 # and security functions (the locksmith).
@@ -53,7 +54,7 @@ def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     return db_user
 
 # =============================================================================
-# WEBSITE CRUD OPERATIONS (NEW)
+# WEBSITE CRUD OPERATIONS
 # =============================================================================
 
 def get_websites_by_user(db: Session, user_id: int) -> list[models.Website]:
@@ -74,7 +75,7 @@ def create_website(db: Session, website: schemas.WebsiteCreate, user_id: int) ->
     return db_website
 
 # =============================================================================
-# CONNECTION CRUD OPERATIONS (NEW)
+# CONNECTION CRUD OPERATIONS
 # =============================================================================
 
 def get_website_by_id_and_owner(db: Session, website_id: int, user_id: int) -> models.Website | None:
@@ -97,3 +98,47 @@ def create_connection_for_website(db: Session, connection: schemas.ConnectionCre
     )
     db.add(db_connection)
     return db_connection
+
+# =============================================================================
+# WAITLIST CRUD OPERATIONS
+# =============================================================================
+
+def create_or_get_waitlist_entry(db: Session, data: schemas.WaitlistCreate, ip_address: str, user_agent: str) -> tuple[models.Waitlist, bool]:
+    """
+    Creates a new waitlist entry or retrieves it if the email already exists.
+    Returns the waitlist object and a boolean indicating if it was created.
+    """
+    normalized_email = data.email.strip().lower()
+    
+    # Check if the user already exists first.
+    existing_entry = db.query(models.Waitlist).filter(models.Waitlist.email == normalized_email).first()
+    if existing_entry:
+        return existing_entry, False # Return existing entry, was not created
+
+    # Create a new entry if one doesn't exist.
+    new_entry = models.Waitlist(
+        email=normalized_email,
+        source=data.source,
+        utm_source=data.utm_source,
+        utm_medium=data.utm_medium,
+        utm_campaign=data.utm_campaign,
+        referer=data.referer,
+        ip_address=ip_address[:64], # Truncate to prevent errors
+        user_agent=(user_agent or "")[:512], # Truncate and handle None
+    )
+    db.add(new_entry)
+    
+    try:
+        db.commit()
+        db.refresh(new_entry)
+        return new_entry, True # Return new entry, was created
+    except IntegrityError:
+        # This is a race condition failsafe: if two requests come in at the exact same
+        # time, the second one will fail the unique constraint. We roll back and
+        # fetch the one that was just created by the other request.
+        db.rollback()
+        existing_entry = db.query(models.Waitlist).filter(models.Waitlist.email == normalized_email).first()
+        # The unique constraint means another request must have created the entry;
+        # assert for the type checker that existing_entry is not None.
+        assert existing_entry is not None
+        return existing_entry, False

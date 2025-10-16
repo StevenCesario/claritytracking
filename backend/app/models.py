@@ -91,3 +91,18 @@ class Connection(Base):
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
 
     website: Mapped["Website"] = relationship(back_populates="connections")
+
+# Represents a user who has signed up for the waitlist.
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    source: Mapped[Optional[str]] = mapped_column(String(100))
+    utm_source: Mapped[Optional[str]] = mapped_column(String(100))
+    utm_medium: Mapped[Optional[str]] = mapped_column(String(100))
+    utm_campaign: Mapped[Optional[str]] = mapped_column(String(100))
+    referer: Mapped[Optional[str]] = mapped_column(String(2048))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))

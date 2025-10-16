@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -48,6 +48,33 @@ app.add_middleware(
 def health_check():
     """A simple endpoint to confirm the API is running."""
     return {"status": "ok"}
+
+# =============================================================================
+# WAITLIST ENDPOINT
+# =============================================================================
+
+@app.post("/api/waitlist", response_model=schemas.WaitlistResponse)
+def join_waitlist(
+    payload: schemas.WaitlistCreate,
+    request: Request,
+    response: Response,
+    db: Session = Depends(database.get_db)
+):
+    """Endpoint for users to join the waitlist."""
+    ip_address = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+    
+    entry, created = crud.create_or_get_waitlist_entry(
+        db=db, data=payload, ip_address=ip_address, user_agent=user_agent
+    )
+
+    # Use the 'created' variable to set the status code
+    if created:
+        response.status_code = status.HTTP_201_CREATED
+    else:
+        response.status_code = status.HTTP_200_OK
+    
+    return entry
 
 # =============================================================================
 # AUTHENTICATION ENDPOINTS
