@@ -26,12 +26,15 @@ app = FastAPI(
 # to make requests to our backend.
 origins = [
     "http://localhost:5173", # Default Vite dev server
-    # Add your production frontend URL here later
+    "https://claritypixel.io",      # Your future prod domain
+    "https://www.claritypixel.io",
+    # Add production frontend URL here later
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.framer\.app$", # Allow Framer previews
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
