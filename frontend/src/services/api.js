@@ -83,3 +83,14 @@ export async function createWebsite(websiteData) {
   });
   return handleErrors(response);
 }
+
+/**
+ * Creates a new platform connection for a specific website.
+ */
+export async function createConnection(websiteId, connectionData) {
+  const response = await authFetch(`/api/websites/${websiteId}/connections`, {
+    method: 'POST',
+    body: JSON.stringify(connectionData),
+  });
+  return handleErrors(response);
+}
