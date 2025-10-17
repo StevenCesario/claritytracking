@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getWebsites, createWebsite } from '../services/api';
+import { getWebsites, createWebsite, createConnection } from '../services/api';
 
 // --- Child Components ---
 
@@ -56,16 +56,29 @@ function CreateWebsiteForm({ onWebsiteCreated }) {
   );
 }
 
-// NEW: A form for connecting a platform. The submit handler is a placeholder for now.
-function ConnectionForm({ website }) {
+// UPDATED: Now takes onConnectionCreated as a prop and uses it in handleSubmit
+function ConnectionForm({ website, onConnectionCreated }) {
   const [pixelId, setPixelId] = useState('');
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    // Logic to be added in the next commit!
-    console.log(`Submitting for website ID ${website.id} with Pixel ID ${pixelId}`);
+    try {
+      // 1. Prepare the data in the shape that the backend expects
+      const connectionData = {
+        platform: 'meta',
+        platform_identifiers: { pixel_id: pixelId },
+      };
+
+      // 2. Call the API service function
+      await createConnection(website.id, connectionData);
+
+      // 3. Call the callback function to notify the parent Dashboard
+      onConnectionCreated();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -101,9 +114,11 @@ function Dashboard({ onLogout }) {
   const [error, setError] = useState(null);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState(null); // NEW: State to track which form to show
 
-  // Fetch websites when the component mounts
-  useEffect(() => {
-    const fetchWebsites = async () => {
+  // UPDATED: fetchWebsites is now defined outside of useEffect so it can be reused
+  const fetchWebsites = async () => {
+    // Resetting states for a clean fetch
+    setError(null);
+    setIsLoading(true);
       try {
         const data = await getWebsites();
         setWebsites(data);
@@ -113,12 +128,20 @@ function Dashboard({ onLogout }) {
         setIsLoading(false);
       }
     };
+  
+  useEffect(() => {
     fetchWebsites();
   }, []);
 
   // Callback to add a newly created website to our state
   const handleWebsiteCreated = (newWebsite) => {
     setWebsites([...websites, newWebsite]);
+  };
+
+  // NEW: This function is called when a connection is successfully made
+  const handleConnectionCreated = () => {
+    setSelectedWebsiteId(null); // Hide the form
+    fetchWebsites(); // Refresh the entire dashboard to get the latest data
   };
 
   // Find the currently selected website object
@@ -151,7 +174,7 @@ function Dashboard({ onLogout }) {
                   ✓ Connected to: {site.connections.map(c => c.platform).join(', ')}
                 </div>
               ) : (
-                // NEW: Button to show the connection form
+                // Button to show the connection form
                 <button
                   onClick={() => setSelectedWebsiteId(site.id)}
                   className="mt-2 text-sm text-teal-400 hover:underline"
@@ -170,9 +193,12 @@ function Dashboard({ onLogout }) {
           </button>
       </div>
 
-      {/* NEW: Conditionally render the ConnectionForm */}
+      {/* UPDATED: Pass the onConnectionCreated callback to the form */}
       {selectedWebsite && (
-        <ConnectionForm website={selectedWebsite} />
+        <ConnectionForm
+          website={selectedWebsite}
+          onConnectionCreated={handleConnectionCreated}
+        />
       )}
     </div>
   );
