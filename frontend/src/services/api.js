@@ -94,3 +94,11 @@ export async function createConnection(websiteId, connectionData) {
   });
   return handleErrors(response);
 }
+
+/**
+ * Fetches the event health monitor data for a specific website.
+ */
+export async function getWebsiteHealth(websiteId) {
+  const response = await authFetch(`/api/websites/${websiteId}/health`);
+  return handleErrors(response);
+}
