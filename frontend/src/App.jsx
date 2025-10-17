@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import LoginForm from './components/LoginForm';
 import RegistrationForm from './components/RegistrationForm';
 import Dashboard from './components/Dashboard';
+import SessionExpiredModal from './components/SessionExpiredModal'; // Import the new modal
 
 // This new component is a "local conductor". Its only job is to manage
 // which authentication form is visible, keeping the main App component clean.
@@ -57,14 +58,28 @@ function App() {
   // It initializes its state by checking localStorage, which allows us to
   // keep the user logged in even after a page refresh.
   const [token, setToken] = useState(localStorage.getItem('authToken'));
+  const [isSessionExpired, setIsSessionExpired] = useState(false); // NEW: State to control the modal
 
-  // A single declarative rule for localStorage management of the authToken
+  // UPDATE: This effect now handles both localStorage and the session expiry listener
   useEffect(() => {
+    const handleSessionExpired = () => {
+      setIsSessionExpired(true); // Show the modal
+    };
+
+    // Listen for the custom event broadcast by authFetch
+    window.addEventListener('sessionExpired', handleSessionExpired);
+    
+    // Update localStorage when token changes
     if (token) {
       localStorage.setItem('authToken', token);
     } else {
       localStorage.removeItem('authToken');
     }
+
+    // Cleanup function to remove the event listener
+    return () => {
+      window.removeEventListener('sessionExpired', handleSessionExpired);
+    };
   }, [token]);
 
   // This function is now passed to AuthScreen
@@ -72,15 +87,18 @@ function App() {
     setToken(newToken);
   };
 
-  // This function is now passed to the Logout button
+  // UPDATE: This is now the single source of truth for logging out
   const handleLogout = () => {
     setToken(null);
+    setIsSessionExpired(false); // Also hide the modal if it was open
   };
 
   return (
     <div className="bg-gray-900 min-h-screen flex items-center justify-center text-white p-4">
+      {/* Conditionally render the modal on top of everything else */}
+      {isSessionExpired && <SessionExpiredModal onClose={handleLogout} />}
+
       {token ? (
-        // If logged in, render the Dashboard and pass the logout handler
         <Dashboard onLogout={handleLogout} />
       ) : (
         <AuthScreen onLoginSuccess={handleLoginSuccess} />
