@@ -23,9 +23,16 @@ const authFetch = async (url, options = {}) => {
   // This is our global "bouncer". If an API call ever returns a 401 Unauthorized,
   // it means the token is invalid or expired. We'll handle this globally later.
   if (response.status === 401) {
-    // For now, we just log it. We'll build a global logout handler later.
-    console.error("Authentication error: Token is invalid or expired.");
-    // In a real app, you'd trigger a logout here.
+    // 1. Log the user out by clearing the token from storage.
+    localStorage.removeItem('authToken');
+
+    // 2. For a full page reload. React's state will re-initialize,
+    // our App component will see that there's no token, and it will render 
+    // the login screen. This is the cleanest way to reset the entire app state.
+    window.location.reload();
+
+    // We throw an error to stop the original promise chain from continuing.
+    throw new Error("Sesstion expired. Please log in again.");
   }
 
   return response;
