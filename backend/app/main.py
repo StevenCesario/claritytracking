@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta, timezone
 
 # Annotated as a modern way to declare dependencies, List for the response models
 from typing import Annotated, List
@@ -211,3 +212,54 @@ def create_connection(
     db.commit()
     db.refresh(db_connection)
     return db_connection
+
+@app.get("/api/websites/{website_id}/health", response_model=list[schemas.EventHealth])
+def get_website_health(
+    website_id: int,
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: Session = Depends(database.get_db)
+):
+    """
+    Returns mock event health data for a given website.
+    This endpoint will be replaced with real data later.
+    """
+    # 1. Ownership check (critical for security)
+    db_website = crud.get_website_by_id_and_owner(
+        db=db,
+        website_id=website_id,
+        user_id=current_user.id,
+    )
+    if website_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Website not found or you do not have permission to access it."
+        )
+    
+    # 2. Return mock data
+    mock_health_data = [
+        schemas.EventHealth(
+            event_name="PageView",
+            emq_score=9.1,
+            last_received=datetime.now(timezone.utc) - timedelta(minutes=2),
+            status="healthy"
+        ),
+        schemas.EventHealth(
+            event_name="AddToCart",
+            emq_score=8.5,
+            last_received=datetime.now(timezone.utc) - timedelta(hours=1),
+            status="healthy"
+        ),
+        schemas.EventHealth(
+            event_name="InitiateCheckout",
+            emq_score=6.2,
+            last_received=datetime.now(timezone.utc) - timedelta(minutes=45),
+            status="warning"
+        ),
+        schemas.EventHealth(
+            event_name="Purchase",
+            emq_score=4.7,
+            last_received=datetime.now(timezone.utc) - timedelta(days=1),
+            status="error"
+        ),
+    ]
+    return mock_health_data
