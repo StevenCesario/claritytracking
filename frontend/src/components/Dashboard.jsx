@@ -163,7 +163,7 @@ function Dashboard({ onLogout }) {
   // Main view when the user HAS websites
   return (
     <div className="w-full flex flex-col items-center justify-center min-h-screen py-8">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-2xl">
+      <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-4xl">
         <h1 className="text-3xl font-bold text-white">Your Websites</h1>
         <ul className="mt-4 text-left divide-y divide-gray-700">
           {websites.map(site => (
