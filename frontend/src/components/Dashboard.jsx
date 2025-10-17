@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getWebsites, createWebsite, createConnection } from '../services/api';
+import EventHealthMonitor from './EventHealthMonitor'; // Import the new component
 
 // --- Child Components ---
 
@@ -112,7 +113,7 @@ function Dashboard({ onLogout }) {
   const [websites, setWebsites] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState(null); // NEW: State to track which form to show
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState(null); // Will now be used to show the details view
 
   // UPDATED: fetchWebsites is now defined outside of useEffect so it can be reused
   const fetchWebsites = async () => {
@@ -161,47 +162,45 @@ function Dashboard({ onLogout }) {
 
   // Main view when the user HAS websites
   return (
-    // Flexbox utilities added here to center the child components
-    <div className="w-full flex flex-col items-center justify-center">
+    <div className="w-full flex flex-col items-center justify-center min-h-screen py-8">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-2xl">
-          <h1 className="text-3xl font-bold text-white">Your Websites</h1>
-          <ul className="mt-4 text-left divide-y divide-gray-700">
+        <h1 className="text-3xl font-bold text-white">Your Websites</h1>
+        <ul className="mt-4 text-left divide-y divide-gray-700">
           {websites.map(site => (
             <li key={site.id} className="py-4">
-              <p className="font-semibold text-white">{site.name} <span className="text-gray-400 font-normal">({site.url})</span></p>
-              {site.connections.length > 0 ? (
-                <div className="mt-2 text-sm text-green-400">
-                  ✓ Connected to: {site.connections.map(c => c.platform).join(', ')}
-                </div>
-              ) : (
-                // Button to show the connection form
-                <button
-                  onClick={() => setSelectedWebsiteId(site.id)}
-                  className="mt-2 text-sm text-teal-400 hover:underline"
-                >
-                  + Connect a platform
-                </button>
+              <div 
+                className="cursor-pointer"
+                onClick={() => setSelectedWebsiteId(site.id === selectedWebsiteId ? null : site.id)}
+              >
+                <p className="font-semibold text-white">{site.name} <span className="text-gray-400 font-normal">({site.url})</span></p>
+                {site.connections.length > 0 ? (
+                  <div className="mt-2 text-sm text-green-400">
+                    ✓ Connected to: {site.connections.map(c => c.platform).join(', ')}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-yellow-400">
+                    ! No platforms connected
+                  </div>
+                )}
+              </div>
+              
+              {/* Conditionally render the Health Monitor for the selected site */}
+              {selectedWebsiteId === site.id && (
+                <EventHealthMonitor websiteId={site.id} />
               )}
             </li>
           ))}
-          </ul>
-          <button
-            onClick={onLogout}
-            className="mt-8 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
-          >
-            Log Out
-          </button>
+        </ul>
+        <button
+          onClick={onLogout}
+          className="mt-8 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
+        >
+          Log Out
+        </button>
       </div>
-
-      {/* UPDATED: Pass the onConnectionCreated callback to the form */}
-      {selectedWebsite && (
-        <ConnectionForm
-          website={selectedWebsite}
-          onConnectionCreated={handleConnectionCreated}
-        />
-      )}
     </div>
   );
 }
+
 
 export default Dashboard;
