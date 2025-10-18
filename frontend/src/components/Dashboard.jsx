@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getWebsites, createWebsite, createConnection } from '../services/api';
-import EventHealthMonitor from './EventHealthMonitor'; // Import the new component
+import EventHealthMonitor from './EventHealthMonitor';
+import AttributionDashboard from './AttributionDashboard'; // Import the new component
 
 // --- Child Components ---
 
@@ -57,7 +58,7 @@ function CreateWebsiteForm({ onWebsiteCreated }) {
   );
 }
 
-// UPDATED: Now takes onConnectionCreated as a prop and uses it in handleSubmit
+// Takes onConnectionCreated as a prop and uses it in handleSubmit
 function ConnectionForm({ website, onConnectionCreated }) {
   const [pixelId, setPixelId] = useState('');
   const [error, setError] = useState(null);
@@ -178,19 +179,38 @@ function Dashboard({ onLogout }) {
                     ✓ Connected to: {site.connections.map(c => c.platform).join(', ')}
                   </div>
                 ) : (
-                  <div className="mt-2 text-sm text-yellow-400">
-                    ! No platforms connected
-                  </div>
+                  <button
+                    onClick={(e) => { // Prevent click from bubbling up to the main div
+                      e.stopPropagation(); 
+                      setSelectedWebsiteId(site.id) // Still open the detail view
+                    }} 
+                    className="mt-2 text-sm text-teal-400 hover:underline"
+                  >
+                    + Connect a platform
+                  </button>
                 )}
               </div>
               
-              {/* Conditionally render the Health Monitor for the selected site */}
+              {/* Conditionally render the details for the selected site */}
               {selectedWebsiteId === site.id && (
-                <EventHealthMonitor websiteId={site.id} />
+                <div className='mt-4'> {/* Added a container div */}
+                  <EventHealthMonitor websiteId={site.id} />
+                  {/* Render the new AttributionDashboard */}
+                  <AttributionDashboard websiteId={site.id} />
+                </div>
               )}
             </li>
           ))}
         </ul>
+        
+        {/* Conditionally render the ConnectionForm if needed */}
+        {selectedWebsite && selectedWebsite.connections.length === 0 && (
+          <ConnectionForm
+            website={selectedWebsite}
+            onConnectionCreated={handleConnectionCreated}
+          />
+        )}
+
         <button
           onClick={onLogout}
           className="mt-8 px-4 py-2 bg-red-600 rounded-md hover:bg-red-700 font-medium"
