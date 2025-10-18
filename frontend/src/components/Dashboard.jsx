@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getWebsites, createWebsite, createConnection } from '../services/api';
 import EventHealthMonitor from './EventHealthMonitor';
-import AttributionDashboard from './AttributionDashboard'; // Import the new component
+import AttributionDashboard from './AttributionDashboard';
+import AlertsDisplay from './AlertsDisplay'; // Import the new component
 
 // --- Child Components ---
 
@@ -116,7 +117,7 @@ function Dashboard({ onLogout }) {
   const [error, setError] = useState(null);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState(null); // Will now be used to show the details view
 
-  // UPDATED: fetchWebsites is now defined outside of useEffect so it can be reused
+  // fetchWebsites is now defined outside of useEffect so it can be reused
   const fetchWebsites = async () => {
     // Resetting states for a clean fetch
     setError(null);
@@ -140,7 +141,7 @@ function Dashboard({ onLogout }) {
     setWebsites([...websites, newWebsite]);
   };
 
-  // NEW: This function is called when a connection is successfully made
+  // This function is called when a connection is successfully made
   const handleConnectionCreated = () => {
     setSelectedWebsiteId(null); // Hide the form
     fetchWebsites(); // Refresh the entire dashboard to get the latest data
@@ -193,9 +194,10 @@ function Dashboard({ onLogout }) {
               
               {/* Conditionally render the details for the selected site */}
               {selectedWebsiteId === site.id && (
-                <div className='mt-4'> {/* Added a container div */}
+                <div className='mt-4 pt-6 border-t border-gray-700'> {/* UPDATED: Added container div and top border */}
+                  {/* Render the new AlertsDisplay */}
+                  <AlertsDisplay websiteId={site.id} />
                   <EventHealthMonitor websiteId={site.id} />
-                  {/* Render the new AttributionDashboard */}
                   <AttributionDashboard websiteId={site.id} />
                 </div>
               )}
