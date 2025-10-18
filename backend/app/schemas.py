@@ -87,6 +87,15 @@ class EventHealth(BaseModel):
     last_received: datetime
     status: str # e.g., "healthy", "warning", "error"
 
+# NEW: Schema for the Health Monitor alerts
+class EventAlert(BaseModel):
+    """Represents a specific health alert for the dashboard."""
+    id: str
+    severity: str # "error" or "warning"
+    title: str
+    message: str
+    timestamp: datetime
+
 class DashboardResponse(BaseModel):
     """The single source of truth for the frontend dashboard."""
     total_conversions_recovered: int

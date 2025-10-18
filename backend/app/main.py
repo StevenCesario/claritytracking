@@ -263,3 +263,44 @@ def get_website_health(
         ),
     ]
     return mock_health_data
+
+# NEW: Mock endpoint for health alerts
+@app.get("/api/websites/{website_id}/alerts", response_model=list[schemas.EventAlert])
+def get_website_alerts(
+    website_id: int,
+    current_user: Annotated[models.User, Depends(security.get_current_user)],
+    db: Session = Depends(database.get_db)
+):
+    """
+    Returns mock health alerts for a given website.
+    """
+    # 1. Ownership check (critical for security)
+    db_website = crud.get_website_by_id_and_owner(
+        db=db,
+        website_id=website_id,
+        user_id=current_user.id,
+    )
+    if db_website is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Website not found or you do not have permission to access it."
+        )
+    
+    # 2. Return mock data (mismatched, duplicate)
+    mock_alerts = [
+        schemas.EventAlert(
+            id="alert-1",
+            severity="error",
+            title="Duplicate 'Purchase' Events Detected",
+            message="We are seeing multiple 'Purchase' events with the same event ID. This can inflate your conversion data in Meta Ads Manager.",
+            timestamp=datetime.now(timezone.utc) - timedelta(hours=2)
+        ),
+        schemas.EventAlert(
+            id="alert-2",
+            severity="warning",
+            title="'InitiateCheckout' EMQ is Low (6.2/10)",
+            message="Your 'InitiateCheckout' events are missing key customer parameters. This can reduce ad performance and increase costs.",
+            timestamp=datetime.now(timezone.utc) - timedelta(minutes=45)
+        )
+    ]
+    return mock_alerts
