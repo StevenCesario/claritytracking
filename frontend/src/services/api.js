@@ -102,3 +102,11 @@ export async function getWebsiteHealth(websiteId) {
   const response = await authFetch(`/api/websites/${websiteId}/health`);
   return handleErrors(response);
 }
+
+/**
+ * NEW: Fetches the health alerts for a specific website.
+ */
+export async function getWebsiteAlerts(websiteId) {
+  const response = await authFetch(`/api/websites/${websiteId}/alerts`);
+  return handleErrors(response);
+}
