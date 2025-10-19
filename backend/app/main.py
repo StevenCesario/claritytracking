@@ -213,6 +213,7 @@ def create_connection(
     db.refresh(db_connection)
     return db_connection
 
+# UPDATED: Now uses ingested data instead of mock data
 @app.get("/api/websites/{website_id}/health", response_model=list[schemas.EventHealth])
 def get_website_health(
     website_id: int,
@@ -220,8 +221,7 @@ def get_website_health(
     db: Session = Depends(database.get_db)
 ):
     """
-    Returns mock event health data for a given website.
-    This endpoint will be replaced with real data later.
+    Returns calculated event health data for a given website based on recent event logs.
     """
     # 1. Ownership check (critical for security)
     db_website = crud.get_website_by_id_and_owner(
@@ -229,40 +229,72 @@ def get_website_health(
         website_id=website_id,
         user_id=current_user.id,
     )
-    if website_id is None:
+    if db_website is None: # FIX: Should be db_website, not website_id
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Website not found or you do not have permission to access it."
         )
     
-    # 2. Return mock data
-    mock_health_data = [
-        schemas.EventHealth(
-            event_name="PageView",
-            emq_score=9.1,
-            last_received=datetime.now(timezone.utc) - timedelta(minutes=2),
-            status="healthy"
-        ),
-        schemas.EventHealth(
-            event_name="AddToCart",
-            emq_score=8.5,
-            last_received=datetime.now(timezone.utc) - timedelta(hours=1),
-            status="healthy"
-        ),
-        schemas.EventHealth(
-            event_name="InitiateCheckout",
-            emq_score=6.2,
-            last_received=datetime.now(timezone.utc) - timedelta(minutes=45),
-            status="warning"
-        ),
-        schemas.EventHealth(
-            event_name="Purchase",
-            emq_score=4.7,
-            last_received=datetime.now(timezone.utc) - timedelta(days=1),
-            status="error"
-        ),
-    ]
-    return mock_health_data
+    # 2. UPDATED: Get the summary data from the database
+    # Let's look back 3 days (72 hours) for relevant events
+    summary_data = crud.get_recent_event_summary(db=db, website_id=website_id, time_window_hours=72)
+
+    # 3. Process the summary to calculate status and mock EMQ
+    health_results = []
+    now = datetime.now(timezone.utc)
+
+    # Define the standard events we care about for the monitor
+    standard_events = ["PageView", "AddToCart", "InitiateCheckout", "Purchase"]
+
+    # Create a dictionary for quick lookup
+    summary_map = {item["event_name"]: item for item in summary_data}
+
+    for event_name in standard_events:
+        event_summary = summary_map.get(event_name)
+
+        if event_summary:
+            last_received = event_summary["last_received"]
+            time_diff = now - last_received
+            fbp_present = event_summary["fbp_present"]
+
+            # Simple status logic based on recency
+            if time_diff > timedelta(days=1):
+                event_status = "error"
+            elif time_diff > timedelta(hours=4): # Make warning threshold a bit shorter
+                event_status = "warning"
+            else:
+                event_status = "healthy"
+
+            # Very basic mock EMQ score calculation
+            # Start with a base score, add points for recency and fbp
+            emq_score = 4.0 
+            if event_status == "healthy":
+                emq_score += 3.0
+            elif event_status == "warning":
+                emq_score += 1.5
+                
+            if fbp_present: # Give points if fbp cookie was logged
+                 emq_score += 2.1 
+            
+            # Cap the score at 9.9 for realism 
+            emq_score = min(emq_score, 9.9)
+
+            health_results.append(schemas.EventHealth(
+                event_name=event_name,
+                emq_score=emq_score,
+                last_received=last_received,
+                status=event_status
+            ))
+        else:
+            # If the event hasn't been received in the time window
+             health_results.append(schemas.EventHealth(
+                event_name=event_name,
+                emq_score=0.0, # No data, score is 0
+                last_received=datetime.min.replace(tzinfo=timezone.utc), # Use minimum datetime
+                status="error" # Mark as error if not seen recently
+            ))
+             
+    return health_results
 
 # NEW: Mock endpoint for health alerts
 @app.get("/api/websites/{website_id}/alerts", response_model=list[schemas.EventAlert])
