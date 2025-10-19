@@ -20,8 +20,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Run the database migrations using the config file in the backend directory
-RUN alembic -c backend/alembic.ini upgrade head
+# === NEW: Change directory before running alembic ===
+WORKDIR /usr/src/app/backend
 
-# Define the command to run the web service
+# Run the database migrations (Alembic will now find alembic.ini automatically)
+RUN alembic upgrade head
+
+# === NEW: Change back to the app root for the CMD ===
+WORKDIR /usr/src/app
+
+# Define the command to run the web service (path is correct from here)
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "10000"]
