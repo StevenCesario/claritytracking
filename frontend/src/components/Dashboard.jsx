@@ -25,7 +25,7 @@ function CreateWebsiteForm({ onWebsiteCreated }) {
 
   return (
     <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg text-center">
-      <h2 className="text-2xl font-bold text-white mb-2">Welcome to ClarityPixel</h2>
+      <h2 className="text-2xl font-bold text-white mb-2">Welcome to ClarityTracking</h2>
       <p className="text-gray-400 mb-6">Let's get your first website set up for tracking.</p>
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         <div>

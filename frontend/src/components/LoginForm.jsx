@@ -21,7 +21,7 @@ function LoginForm({ onLoginSuccess }) {
 
   return (
     <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full">
-      <h2 className="text-2xl font-bold text-center text-white mb-6">Log In to ClarityPixel</h2>
+      <h2 className="text-2xl font-bold text-center text-white mb-6">Log In to ClarityTracking</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-300">Email</label>

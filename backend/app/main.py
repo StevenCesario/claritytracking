@@ -17,8 +17,8 @@ models.Base.metadata.create_all(bind=database.engine)
 
 # Create the main FastAPI application instance. This is our "restaurant".
 app = FastAPI(
-    title="ClarityPixel API",
-    description="The backend service for ClarityPixel, providing CAPI automation and attribution.",
+    title="ClarityTracking API",
+    description="The backend service for ClarityTracking, providing CAPI automation and attribution.",
     version="1.0.0"
 )
 
@@ -27,8 +27,8 @@ app = FastAPI(
 # to make requests to our backend.
 origins = [
     "http://localhost:5173", # Default Vite dev server
-    "https://claritypixel.io",      # Your future prod domain
-    "https://www.claritypixel.io",
+    "https://claritytracking.io",      # Your future prod domain
+    "https://www.claritytracking.io",
     # Add production frontend URL here later
 ]
 
