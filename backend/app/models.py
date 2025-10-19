@@ -106,3 +106,33 @@ class Waitlist(Base):
     user_agent: Mapped[Optional[str]] = mapped_column(String(512))
     ip_address: Mapped[Optional[str]] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+
+# NEW: Represents a raw event received from a user's website snippet.
+class EventLog(Base):
+    __tablename__ = "event_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    website_id: Mapped[int] = mapped_column(ForeignKey("websites.id"), index=True)
+    received_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc), index=True)
+    
+    # Core Meta event details
+    event_id: Mapped[Optional[str]] = mapped_column(String(100), index=True) # For deduplication
+    event_name: Mapped[str] = mapped_column(String(100), index=True)
+    event_time: Mapped[datetime] # Timestamp from the client when the event occurred
+    event_source_url: Mapped[Optional[str]] = mapped_column(String(2048))
+    
+    # Key user identifiers (we'll store them raw initially for simplicity, hash later)
+    # Storing raw temporarily helps debugging; hash before sending to Meta.
+    user_ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    fbp: Mapped[Optional[str]] = mapped_column(String(100)) # _fbp cookie
+    fbc: Mapped[Optional[str]] = mapped_column(String(255)) # _fbc cookie
+    email: Mapped[Optional[str]] = mapped_column(String(255)) # Store raw for now
+    phone: Mapped[Optional[str]] = mapped_column(String(100)) # Store raw for now
+
+    # Basic purchase info if available
+    value: Mapped[Optional[float]] = mapped_column()
+    currency: Mapped[Optional[str]] = mapped_column(String(10))
+
+    # Relationship back to the Website (optional but good practice)
+    website: Mapped["Website"] = relationship() # Defaults to lazy loading

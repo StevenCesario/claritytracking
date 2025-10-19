@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func # Need func for MAX aggregation
+from datetime import datetime, timedelta, timezone
 
 # We import our models (the database blueprint), schemas (the API contract),
 # and security functions (the locksmith).
@@ -142,3 +144,75 @@ def create_or_get_waitlist_entry(db: Session, data: schemas.WaitlistCreate, ip_a
         # assert for the type checker that existing_entry is not None.
         assert existing_entry is not None
         return existing_entry, False
+    
+# =============================================================================
+# EVENT LOG CRUD OPERATIONS
+# =============================================================================
+
+def get_recent_event_summary(db: Session, website_id: int, time_window_hours: int = 72) -> list:
+    """
+    Queries the event_logs table for the most recent timestamp of each event type
+    within a given time window for a specific website.
+    Also fetches associated data like fbp presence for simple EMQ calculation later.
+    """
+
+    # Calculate the cutoff time
+    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_window_hours)
+
+    # Subquery to find the latest ID for each event_name within the window
+    # We use ID because MAX(received_at) can be slow wihtout a good index strategy later
+    latest_event_ids = db.query(
+        models.EventLog.event_name,
+        func.max(models.EventLog.id).label("max_id")
+    ).filter(
+        models.EventLog.website_id == website_id,
+        models.EventLog.received_at >= cutoff_time
+    ).group_by(
+        models.EventLog.event_name
+    ).subquery()
+
+    # Main query to get the full log entry for those specific latest IDs
+    main_results = db.query(
+        models.EventLog.event_name,
+        models.EventLog.received_at,
+        models.EventLog.fbp, # Include fbp to help calculate mock EMQ
+        # Add other fields here if needed for EMQ calc later (e.g., email presence)
+    ).join(
+        latest_event_ids,
+        models.EventLog.id == latest_event_ids.c.max_id
+    ).all()
+
+    # Convery SQLAlchemy Row objects to simple dictionaries for easier handling in the endpoint
+    summary = [
+        {
+            "event_name": row.event_name,
+            "latest_received": row.received_at,
+            "fbp_present": bool(row.fbp) # Example field for EMQ calc
+        } for row in main_results
+    ]
+
+    return summary
+
+# NEW: Function to find potential duplicate events based on event_id
+def get_potential_duplicate_events(db: Session, website_id: int, time_window_minutes: int = 60) -> list:
+    """
+    Finds event_ids that appear more than once for the same website within a recent time window.
+    Focuses on non-null event_ids as nulls cannot indicate duplication.
+    """
+    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=time_window_minutes)
+
+    # Find event_ids that are not null and appear more than once
+    duplicate_event_ids = db.query(
+        models.EventLog.event_id
+    ).filter(
+        models.EventLog.website_id == website_id,
+        models.EventLog.received_at >= cutoff_time,
+        models.EventLog.event_id != None # # Explicitly check for non-null event_id
+    ).group_by(
+        models.EventLog.event_id
+    ).having(
+        func.count(models.EventLog.event_id) > 1 # Only include event_ids that appear more than once
+    ).all() # Get all such event_ids
+
+    # Return a simple list of the event_ids that were duplicated
+    return [row.event_id for row in duplicate_event_ids]

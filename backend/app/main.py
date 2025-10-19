@@ -213,6 +213,7 @@ def create_connection(
     db.refresh(db_connection)
     return db_connection
 
+# UPDATED: Now uses ingested data instead of mock data
 @app.get("/api/websites/{website_id}/health", response_model=list[schemas.EventHealth])
 def get_website_health(
     website_id: int,
@@ -220,8 +221,7 @@ def get_website_health(
     db: Session = Depends(database.get_db)
 ):
     """
-    Returns mock event health data for a given website.
-    This endpoint will be replaced with real data later.
+    Returns calculated event health data for a given website based on recent event logs.
     """
     # 1. Ownership check (critical for security)
     db_website = crud.get_website_by_id_and_owner(
@@ -229,42 +229,74 @@ def get_website_health(
         website_id=website_id,
         user_id=current_user.id,
     )
-    if website_id is None:
+    if db_website is None: # FIX: Should be db_website, not website_id
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Website not found or you do not have permission to access it."
         )
     
-    # 2. Return mock data
-    mock_health_data = [
-        schemas.EventHealth(
-            event_name="PageView",
-            emq_score=9.1,
-            last_received=datetime.now(timezone.utc) - timedelta(minutes=2),
-            status="healthy"
-        ),
-        schemas.EventHealth(
-            event_name="AddToCart",
-            emq_score=8.5,
-            last_received=datetime.now(timezone.utc) - timedelta(hours=1),
-            status="healthy"
-        ),
-        schemas.EventHealth(
-            event_name="InitiateCheckout",
-            emq_score=6.2,
-            last_received=datetime.now(timezone.utc) - timedelta(minutes=45),
-            status="warning"
-        ),
-        schemas.EventHealth(
-            event_name="Purchase",
-            emq_score=4.7,
-            last_received=datetime.now(timezone.utc) - timedelta(days=1),
-            status="error"
-        ),
-    ]
-    return mock_health_data
+    # 2. UPDATED: Get the summary data from the database
+    # Let's look back 3 days (72 hours) for relevant events
+    summary_data = crud.get_recent_event_summary(db=db, website_id=website_id, time_window_hours=72)
 
-# NEW: Mock endpoint for health alerts
+    # 3. Process the summary to calculate status and mock EMQ
+    health_results = []
+    now = datetime.now(timezone.utc)
+
+    # Define the standard events we care about for the monitor
+    standard_events = ["PageView", "AddToCart", "InitiateCheckout", "Purchase"]
+
+    # Create a dictionary for quick lookup
+    summary_map = {item["event_name"]: item for item in summary_data}
+
+    for event_name in standard_events:
+        event_summary = summary_map.get(event_name)
+
+        if event_summary:
+            last_received = event_summary["last_received"]
+            time_diff = now - last_received
+            fbp_present = event_summary["fbp_present"]
+
+            # Simple status logic based on recency
+            if time_diff > timedelta(days=1):
+                event_status = "error"
+            elif time_diff > timedelta(hours=4): # Make warning threshold a bit shorter
+                event_status = "warning"
+            else:
+                event_status = "healthy"
+
+            # Very basic mock EMQ score calculation
+            # Start with a base score, add points for recency and fbp
+            emq_score = 4.0 
+            if event_status == "healthy":
+                emq_score += 3.0
+            elif event_status == "warning":
+                emq_score += 1.5
+                
+            if fbp_present: # Give points if fbp cookie was logged
+                 emq_score += 2.1 
+            
+            # Cap the score at 9.9 for realism 
+            emq_score = min(emq_score, 9.9)
+
+            health_results.append(schemas.EventHealth(
+                event_name=event_name,
+                emq_score=emq_score,
+                last_received=last_received,
+                status=event_status
+            ))
+        else:
+            # If the event hasn't been received in the time window
+             health_results.append(schemas.EventHealth(
+                event_name=event_name,
+                emq_score=0.0, # No data, score is 0
+                last_received=datetime.min.replace(tzinfo=timezone.utc), # Use minimum datetime
+                status="error" # Mark as error if not seen recently
+            ))
+             
+    return health_results
+
+# UPDATED: Now uses our new CRUD function for calculated health alerts rather than mock ones
 @app.get("/api/websites/{website_id}/alerts", response_model=list[schemas.EventAlert])
 def get_website_alerts(
     website_id: int,
@@ -272,7 +304,8 @@ def get_website_alerts(
     db: Session = Depends(database.get_db)
 ):
     """
-    Returns mock health alerts for a given website.
+    Returns calculated health alerts for a given website based on recent event logs.
+    Currently checks for potential duplicate events.
     """
     # 1. Ownership check (critical for security)
     db_website = crud.get_website_by_id_and_owner(
@@ -286,21 +319,47 @@ def get_website_alerts(
             detail="Website not found or you do not have permission to access it."
         )
     
-    # 2. Return mock data (mismatched, duplicate)
-    mock_alerts = [
-        schemas.EventAlert(
-            id="alert-1",
+    # 2. UPDATED: No more mock data. Initialize list to hold generated alerts
+    alerts = []
+    now = datetime.now(timezone.utc)
+    
+    # 3. Check for duplicate events using the new CRUD function
+    # Look for duplicates within the last hour
+    duplicate_ids = crud.get_potential_duplicate_events(db=db, website_id=website_id, time_window_minutes=60)
+
+    if duplicate_ids:
+        # Just create one generic alert if any duplicates are found for now
+        alerts.append(schemas.EventAlert(
+            id="alert-duplicate-events", # Static ID for this type of alert
             severity="error",
-            title="Duplicate 'Purchase' Events Detected",
-            message="We are seeing multiple 'Purchase' events with the same event ID. This can inflate your conversion data in Meta Ads Manager.",
-            timestamp=datetime.now(timezone.utc) - timedelta(hours=2)
-        ),
-        schemas.EventAlert(
-            id="alert-2",
-            severity="warning",
-            title="'InitiateCheckout' EMQ is Low (6.2/10)",
-            message="Your 'InitiateCheckout' events are missing key customer parameters. This can reduce ad performance and increase costs.",
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=45)
-        )
-    ]
-    return mock_alerts
+            title="Potential Duplicate Events Detected",
+            message=f"We detected {len(duplicate_ids)} event ID(s) sent multiple times recently (e.g., '{duplicate_ids[0]}'). This could inflate conversion counts.",
+            timestamp=now # Use current time for the alert generation time
+        ))
+
+    # 4. Check for low EMQ scores (can reuse logic/data from health endpoint if needed later)
+    # For now, let's keep the mock warning alert logic based on a simple check
+    # In a real system, we might query health status or calculate EMQ here too.
+    # Placeholder: Add back the warning if InitiateCheckout was seen recently but had low score
+    health_summary = crud.get_recent_event_summary(db=db, website_id=website_id, time_window_hours=24) # Check last 24h
+    checkout_summary = next((item for item in health_summary if item["event_name"] == "InitiateCheckout"), None)
+    
+    if checkout_summary:
+        # Re-calculate a mock score (similar to /health endpoint)
+        temp_emq = 4.0
+        if (now - checkout_summary["last_received"]) < timedelta(hours=4): temp_emq += 3.0
+        if checkout_summary["fbp_present"]: temp_emq += 2.1
+        temp_emq = min(temp_emq, 9.9)
+
+        if temp_emq < 7.0: # If mock score is low
+             alerts.append(schemas.EventAlert(
+                id="alert-low-emq-checkout",
+                severity="warning",
+                title=f"'InitiateCheckout' EMQ May Be Low ({temp_emq:.1f}/10)",
+                message="Recent 'InitiateCheckout' events might be missing key customer parameters. Consider reviewing data points sent.",
+                timestamp=checkout_summary["last_received"] # Use event time for relevance
+            ))
+
+    # Add more alert generation logic here later (e.g., events not seen at all)
+
+    return alerts
