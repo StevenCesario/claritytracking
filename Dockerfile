@@ -20,10 +20,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Run the database migrations
-# We must set the DATABASE_URL as a build-time secret
-# for this command to work.
-RUN alembic upgrade head
+# Run the database migrations using the config file in the backend directory
+RUN alembic -c backend/alembic.ini upgrade head
 
 # Define the command to run the web service
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "10000"]
