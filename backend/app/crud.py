@@ -192,3 +192,27 @@ def get_recent_event_summary(db: Session, website_id: int, time_window_hours: in
     ]
 
     return summary
+
+# NEW: Function to find potential duplicate events based on event_id
+def get_potential_duplicate_events(db: Session, website_id: int, time_window_minutes: int = 60) -> list:
+    """
+    Finds event_ids that appear more than once for the same website within a recent time window.
+    Focuses on non-null event_ids as nulls cannot indicate duplication.
+    """
+    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=time_window_minutes)
+
+    # Find event_ids that are not null and appear more than once
+    duplicate_event_ids = db.query(
+        models.EventLog.event_id
+    ).filter(
+        models.EventLog.website_id == website_id,
+        models.EventLog.received_at >= cutoff_time,
+        models.EventLog.event_id != None # # Explicitly check for non-null event_id
+    ).group_by(
+        models.EventLog.event_id
+    ).having(
+        func.count(models.EventLog.event_id) > 1 # Only include event_ids that appear more than once
+    ).all() # Get all such event_ids
+
+    # Return a simple list of the event_ids that were duplicated
+    return [row.event_id for row in duplicate_event_ids]

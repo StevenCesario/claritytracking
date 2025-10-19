@@ -296,7 +296,7 @@ def get_website_health(
              
     return health_results
 
-# NEW: Mock endpoint for health alerts
+# UPDATED: Now uses our new CRUD function for calculated health alerts rather than mock ones
 @app.get("/api/websites/{website_id}/alerts", response_model=list[schemas.EventAlert])
 def get_website_alerts(
     website_id: int,
@@ -304,7 +304,8 @@ def get_website_alerts(
     db: Session = Depends(database.get_db)
 ):
     """
-    Returns mock health alerts for a given website.
+    Returns calculated health alerts for a given website based on recent event logs.
+    Currently checks for potential duplicate events.
     """
     # 1. Ownership check (critical for security)
     db_website = crud.get_website_by_id_and_owner(
@@ -318,21 +319,47 @@ def get_website_alerts(
             detail="Website not found or you do not have permission to access it."
         )
     
-    # 2. Return mock data (mismatched, duplicate)
-    mock_alerts = [
-        schemas.EventAlert(
-            id="alert-1",
+    # 2. UPDATED: No more mock data. Initialize list to hold generated alerts
+    alerts = []
+    now = datetime.now(timezone.utc)
+    
+    # 3. Check for duplicate events using the new CRUD function
+    # Look for duplicates within the last hour
+    duplicate_ids = crud.get_potential_duplicate_events(db=db, website_id=website_id, time_window_minutes=60)
+
+    if duplicate_ids:
+        # Just create one generic alert if any duplicates are found for now
+        alerts.append(schemas.EventAlert(
+            id="alert-duplicate-events", # Static ID for this type of alert
             severity="error",
-            title="Duplicate 'Purchase' Events Detected",
-            message="We are seeing multiple 'Purchase' events with the same event ID. This can inflate your conversion data in Meta Ads Manager.",
-            timestamp=datetime.now(timezone.utc) - timedelta(hours=2)
-        ),
-        schemas.EventAlert(
-            id="alert-2",
-            severity="warning",
-            title="'InitiateCheckout' EMQ is Low (6.2/10)",
-            message="Your 'InitiateCheckout' events are missing key customer parameters. This can reduce ad performance and increase costs.",
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=45)
-        )
-    ]
-    return mock_alerts
+            title="Potential Duplicate Events Detected",
+            message=f"We detected {len(duplicate_ids)} event ID(s) sent multiple times recently (e.g., '{duplicate_ids[0]}'). This could inflate conversion counts.",
+            timestamp=now # Use current time for the alert generation time
+        ))
+
+    # 4. Check for low EMQ scores (can reuse logic/data from health endpoint if needed later)
+    # For now, let's keep the mock warning alert logic based on a simple check
+    # In a real system, we might query health status or calculate EMQ here too.
+    # Placeholder: Add back the warning if InitiateCheckout was seen recently but had low score
+    health_summary = crud.get_recent_event_summary(db=db, website_id=website_id, time_window_hours=24) # Check last 24h
+    checkout_summary = next((item for item in health_summary if item["event_name"] == "InitiateCheckout"), None)
+    
+    if checkout_summary:
+        # Re-calculate a mock score (similar to /health endpoint)
+        temp_emq = 4.0
+        if (now - checkout_summary["last_received"]) < timedelta(hours=4): temp_emq += 3.0
+        if checkout_summary["fbp_present"]: temp_emq += 2.1
+        temp_emq = min(temp_emq, 9.9)
+
+        if temp_emq < 7.0: # If mock score is low
+             alerts.append(schemas.EventAlert(
+                id="alert-low-emq-checkout",
+                severity="warning",
+                title=f"'InitiateCheckout' EMQ May Be Low ({temp_emq:.1f}/10)",
+                message="Recent 'InitiateCheckout' events might be missing key customer parameters. Consider reviewing data points sent.",
+                timestamp=checkout_summary["last_received"] # Use event time for relevance
+            ))
+
+    # Add more alert generation logic here later (e.g., events not seen at all)
+
+    return alerts
