@@ -54,7 +54,7 @@ class UserAuth(Base):
         uselist=False # Explicitly define as one-to-one
     )
 
-# Represents a website that a user is tracking with ClarityPixel.
+# Represents a website that a user is tracking with ClarityTracking.
 class Website(Base):
     __tablename__ = "websites"
 
