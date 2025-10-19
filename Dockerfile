@@ -2,7 +2,6 @@
 FROM python:3.12-slim
 
 # Install the necessary PostgreSQL development packages
-# (libpq-dev is needed for psycopg to compile)
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
@@ -11,23 +10,23 @@ RUN apt-get update && apt-get install -y \
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Copy the backend requirements file
-COPY backend/requirements.txt .
+# === CORRECTED: Copy the requirements file from the ROOT directory ===
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy the rest of the application code (backend/, frontend/, etc.)
 COPY . .
 
-# === NEW: Change directory before running alembic ===
+# Change directory to run alembic relative to its config
 WORKDIR /usr/src/app/backend
 
-# Run the database migrations (Alembic will now find alembic.ini automatically)
+# Run the database migrations (finds alembic.ini in current dir)
 RUN alembic upgrade head
 
-# === NEW: Change back to the app root for the CMD ===
+# Change back to the app root for the CMD
 WORKDIR /usr/src/app
 
-# Define the command to run the web service (path is correct from here)
+# Define the command to run the web service
 CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "10000"]
