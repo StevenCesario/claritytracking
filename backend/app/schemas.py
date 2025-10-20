@@ -108,8 +108,9 @@ class DashboardResponse(BaseModel):
 # =============================================================================
 
 class WaitlistCreate(BaseModel):
-    """Schema for adding a new email to the waitlist."""
-    email: EmailStr
+    """Schema for adding a new email to the Beta waitlist."""
+    # Use Field alias to accept "Email" from Framer's webhook
+    email: EmailStr = Field(..., alias='Email')
     source: Optional[str] = None
     utm_source: Optional[str] = None
     utm_medium: Optional[str] = None
@@ -119,7 +120,7 @@ class WaitlistCreate(BaseModel):
 class WaitlistResponse(BaseModel):
     """The shape of the response after a successful waitlist signup."""
     id: int
-    email: EmailStr
+    email: EmailStr # Keep this as 'email' for the response
     created_at: datetime
 
     class Config:
