@@ -120,13 +120,13 @@ def create_or_get_waitlist_entry(db: Session, data: schemas.WaitlistCreate, ip_a
     # Create a new entry if one doesn't exist.
     new_entry = models.Waitlist(
         email=normalized_email,
-        source=data.source,
-        utm_source=data.utm_source,
-        utm_medium=data.utm_medium,
-        utm_campaign=data.utm_campaign,
-        referer=data.referer,
-        ip_address=ip_address[:64], # Truncate to prevent errors
-        user_agent=(user_agent or "")[:512], # Truncate and handle None
+        # source=data.source,
+        # utm_source=data.utm_source,
+        # utm_medium=data.utm_medium,
+        # utm_campaign=data.utm_campaign,
+        # referer=data.referer,
+        # ip_address=ip_address[:64], # Truncate to prevent errors
+        # user_agent=(user_agent or "")[:512], # Truncate and handle None
     )
     db.add(new_entry)
     
